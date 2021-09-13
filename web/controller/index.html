@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+    <title>reveal遥控器</title>
+    <style type="text/css">
+        body{background-color:#e0e0e0}#left,#right,#up,#down{width:80px;height:80px;border-radius:50%;position:absolute;background:#e0e0e0;box-shadow:12px 12px 100px #5a5a5a,-12px -12px 100px #fff;border:0;font-size:40px}#left{left:10%;top:20%}#right{right:10%;top:20%}#up{left:50%;top:10%;margin-left:-40px}#down{left:50%;top:30%;margin-left:-40px}h2{text-align:center}.tips{position:absolute;top:50%;text-indent:20px}
+    </style>
+</head>
+<body>
+
+<h2 class="ui header">revealPPT简易控制器</h2>
+<div id="mainWrapper">
+    <button class="ui left labeled icon button secondary" id="left"><i class="left arrow circle icon"></i>←︎</button>
+    <button class="ui left labeled icon button secondary" id="right"><i class="right arrow circle icon"></i>→
+    </button>
+    <button class="ui left labeled icon button secondary" id="up"><i class="up arrow circle icon"></i>↑</button>
+    <button class="ui left labeled icon button secondary" id="down"><i class="down arrow circle icon"></i>↓</button>
+
+    <p class="tips">注：上下左右滑动当前屏幕也是有效的哦</p>
+</div>
+<!-- <button id="clean">clean</button> -->
+<script type="text/javascript">
+    window.onload = function () {
+
+        // ================================== set wrapper height
+        var wrapper = document.getElementById('mainWrapper');
+        wrapper.style.height = (screen.availHeight - 83) + 'px';
+
+        // ================================== reference to  https://juejin.cn/post/6973541673196322847
+        var box = document.querySelector('body') // 监听对象
+        var startTime = '' // 触摸开始时间
+        var startDistanceX = '' // 触摸开始X轴位置
+        var startDistanceY = '' // 触摸开始Y轴位置
+        var endTime = '' // 触摸结束时间
+        var endDistanceX = '' // 触摸结束X轴位置
+        var endDistanceY = '' // 触摸结束Y轴位置
+        var moveTime = '' // 触摸时间
+        var moveDistanceX = '' // 触摸移动X轴距离
+        var moveDistanceY = '' // 触摸移动Y轴距离
+        box.addEventListener("touchstart", (e) => {
+            startTime = new Date().getTime()
+            startDistanceX = e.touches[0].screenX
+            startDistanceY = e.touches[0].screenY
+        })
+        box.addEventListener("touchend", (e) => {
+            endTime = new Date().getTime()
+            endDistanceX = e.changedTouches[0].screenX
+            endDistanceY = e.changedTouches[0].screenY
+            moveTime = endTime - startTime
+            moveDistanceX = startDistanceX - endDistanceX
+            moveDistanceY = startDistanceY - endDistanceY
+            console.log(moveDistanceX, moveDistanceY)
+            // 判断滑动距离超过40 且 时间小于500毫秒
+            if ((Math.abs(moveDistanceX) > 40 || Math.abs(moveDistanceY) > 40) && moveTime < 500) {
+                // 判断X轴移动的距离是否大于Y轴移动的距离
+                if (Math.abs(moveDistanceX) > Math.abs(moveDistanceY)) {
+                    // 左右
+                    if (moveDistanceX > 0) {
+                        sendCommand('right');
+                    } else {
+                        sendCommand('left');
+                    }
+                    console.log(moveDistanceX > 0 ? '左' : '右')
+                } else {
+                    // 上下
+                    if (moveDistanceY > 0) {
+                        sendCommand('down');
+                    } else {
+                        sendCommand('up');
+                    }
+                    console.log(moveDistanceY > 0 ? '上' : '下')
+                }
+            }
+        })
+
+        // ================================== websocket
+        var ws = new WebSocket('ws://' + location.hostname + ":2346");
+        // var ws = new WebSocket('ws://localhost:2346');
+        ws.onopen = function () {
+            ws.send('i am controller');
+        };
+        ws.onmessage = function (e) {
+            console.log('controller get message from server: ' + e.data);
+        };
+
+        var $ = function (dom) {
+            return document.getElementById(dom);
+        }
+        $('up').onclick = function () {
+            sendCommand('up');
+        }
+        $('right').onclick = function () {
+            sendCommand('right');
+        }
+        $('down').onclick = function () {
+            sendCommand('down');
+        }
+        $('left').onclick = function () {
+            sendCommand('left');
+        }
+
+        function sendCommand(status) {
+            ws.send(status);
+        }
+
+    }
+</script>
+</body>
+</html>
