@@ -112,7 +112,7 @@ class PptSocketServer
     }
 
     /**
-     *根据命令判断和设置连接类型
+     * 根据命令判断和设置连接类型
      *
      * @param $connection
      * @param $data
@@ -146,7 +146,11 @@ class Log
     {
         $infos = func_get_args();
         foreach ($infos as $key=> $info) {
-            file_put_contents("./debug.log", "[ ".date('Y-m-d H:i:s')." ] ". var_export($info, true).PHP_EOL, FILE_APPEND);
+            file_put_contents(
+                "./debug.log",
+                "[ " . date('Y-m-d H:i:s') . " ] " . var_export($info, true) . PHP_EOL,
+                FILE_APPEND
+            );
         }
     }
 }
