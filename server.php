@@ -36,6 +36,7 @@ class PptSocketServer
 
     }
 
+    // 简单记录连接的 id 信息
     public function handleConnection($connection)
     {
         $connection->uid = ++$this->globalUid;
@@ -43,12 +44,12 @@ class PptSocketServer
 
     public function handleMessage($connection, $data)
     {
-
+        // 初始化 PPT 网页端的 connection
         if ($this->setPptConnectionIfNull($connection, $data)) {
             Log::info('ppt online');
             return;
         }
-
+        // 初始化 控制端页面的 connection
         if ($this->setControllerConnectionIfNull($connection, $data)) {
             Log::info('controller online');
             return;
@@ -66,12 +67,13 @@ class PptSocketServer
             Log::info('sorry, you are not correct controller ' . $connection->uid);
             return;
         }
-
+        // 转发控制端「指令」到 PPT 网页端
         $this->globalPptConnection->send($data);
     }
 
     public function handleClose($connection)
     {
+        // 判断并销毁 PPT 网页端或者控制端页面的 connection
         $this->destructConnection($connection);
 
         Log::info($connection->uid . ' offline by close websocket');
@@ -95,7 +97,7 @@ class PptSocketServer
     }
 
     /**
-     * 根据命令判断和设置连接类型
+     * 根据命令判断和初始化 PPT 网页端的 connection
      *
      * @param $connection
      * @param $data
@@ -112,7 +114,7 @@ class PptSocketServer
     }
 
     /**
-     * 根据命令判断和设置连接类型
+     * 根据命令判断和初始化控制端页面的 connection
      *
      * @param $connection
      * @param $data

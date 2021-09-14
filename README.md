@@ -2,7 +2,7 @@
 
 ## 背景
 
-这个 idea 是在大学毕设答辩前萌发的，当时正学习实践前端知识，接触到了一个通过前端代码来编写实现 PPT 的项目 [revealjs](https://revealjs.com/)
+这个 idea 是在大学毕设答辩前萌发的，当时正学习实践前端知识，接触到了一个通过前端代码来编写并运行在浏览器中的 PPT 项目 [revealjs](https://revealjs.com/)
 
 
 看完后当时的内心独白：
@@ -39,13 +39,10 @@
 
 ## 基本原理
 
-PPT 网页端和控制器端同时连接 WebSocket Server，由控制器端发送翻页操作指令（上下左右）到 WebSocket Server，然后 WebSocket Server 通知 PPT 网页端，PPT网页端执行翻页操作指令。 
+PPT 网页端和控制器端同时连接 WebSocket Service，由控制器端发送翻页操作指令（上下左右）到 WebSocket Service，然后 WebSocket Service 通知 PPT 网页端，PPT网页端执行翻页操作指令。 
 
 ![图 1](images/image-20210913230808483.png)
 
-## 功能实现
-
-见源码 server.php 部分。
 
 ## 实现效果
 
@@ -53,7 +50,259 @@ PPT 网页端和控制器端同时连接 WebSocket Server，由控制器端发�
 
 将上图中由浏览器打开的控制端页面换为连接同一局域网的手机浏览器打开，就实现了最初的想法。
 
+## 功能实现
+
+源码地址： https://github.com/wenlong-date/ppt 
+
+### 1. 使用 workerman 提供 WebSocket 服务
+
+PPT 网页端和控制器端连接 WebSocket Service 后会简单的「自报家门」，初始化 PPT 网页端的 connection 和控制器的 connection，
+
+file: [server.php](https://github.com/wenlong-date/ppt/blob/master/server.php)
+
+```php
+// ... 
+(new PptSocketServer())->run();
+
+class PptSocketServer
+{
+    const CONNECTION_TYPE_PPT = 'connection_ppt';
+    const CONNECTION_TYPE_CONTROLLER = 'connection_controller';
+
+    protected $worker;
+    protected $globalUid = 0;
+    protected $globalPptConnection;
+    protected $globalControllerConnection;
+
+    public function __construct(int $port = 2346)
+    {
+        $this->initWorker($port);
+    }
+
+    public function run()
+    {
+        Worker::runAll();
+    }
+
+    protected function initWorker(int $port)
+    {
+        $this->worker            = new Worker("websocket://0.0.0.0:" . $port);
+        $this->worker->count     = 1;
+        $this->worker->onConnect = [$this, 'handleConnection'];
+        $this->worker->onMessage = [$this, 'handleMessage'];
+        $this->worker->onClose   = [$this, 'handleClose'];
+
+    }
+
+    // 简单记录连接的 id 信息
+    public function handleConnection($connection)
+    {
+        $connection->uid = ++$this->globalUid;
+    }
+
+    public function handleMessage($connection, $data)
+    {
+        // 初始化 PPT 网页端的 connection
+        if ($this->setPptConnectionIfNull($connection, $data)) {
+            Log::info('ppt online');
+            return;
+        }
+        // 初始化 控制端页面的 connection
+        if ($this->setControllerConnectionIfNull($connection, $data)) {
+            Log::info('controller online');
+            return;
+        }
+
+        // ...
+    }
+
+    public function handleClose($connection)
+    {
+        // 判断并销毁 PPT 网页端或者控制端页面的 connection
+        $this->destructConnection($connection);
+
+        Log::info($connection->uid . ' offline by close websocket');
+    }
+
+    protected function destructConnection($connection)
+    {
+        if (isset($connection->type) && $connection->type === self::CONNECTION_TYPE_PPT) {
+            $this->globalPptConnection = null;
+            Log::info('ppt offline');
+            return true;
+        }
+
+        if (isset($connection->type) && $connection->type === self::CONNECTION_TYPE_CONTROLLER) {
+            $this->globalControllerConnection = null;
+            Log::info('controller offline');
+            return true;
+        }
+
+        return true;
+    }
+
+    /**
+     * 根据命令判断和初始化 PPT 网页端的 connection
+     *
+     * @param $connection
+     * @param $data
+     * @return bool
+     */
+    protected function setPptConnectionIfNull($connection, $data)
+    {
+        if (!is_null($this->globalPptConnection)) return false;
+        if (!$this->requestConnectionIsPpt($data)) return false;
+
+        $connection->type          = self::CONNECTION_TYPE_PPT;
+        $this->globalPptConnection = $connection;
+        return true;
+    }
+
+    /**
+     * 根据命令判断和初始化控制端页面的 connection
+     *
+     * @param $connection
+     * @param $data
+     * @return bool
+     */
+    protected function setControllerConnectionIfNull($connection, $data)
+    {
+        if (!is_null($this->globalControllerConnection)) return false;
+        if (!$this->requestConnectionIsController($data)) return false;
+
+        $connection->type                 = self::CONNECTION_TYPE_CONTROLLER;
+        $this->globalControllerConnection = $connection;
+        return true;
+    }
+
+    public function requestConnectionIsPpt($data)
+    {
+        return $data === 'i am ppt';
+    }
+
+    public function requestConnectionIsController($data)
+    {
+        return $data === 'i am controller';
+    }
+
+}
+```
+
+### 2. 控制端页面发送「指令」给 WebSocket Service
+
+file: [/web/controller/index.html](https://github.com/wenlong-date/ppt/blob/master/web/controller/index.html)
+
+```javascript
+// ...
+
+var ws = new WebSocket('ws://' + location.hostname + ":2346");
+ws.onopen = function () {
+    ws.send('i am controller');
+};
+ws.onmessage = function (e) {
+    console.log('controller get message from server: ' + e.data);
+};
+
+var $ = function (dom) {
+    return document.getElementById(dom);
+}
+$('up').onclick = function () {
+    sendCommand('up');
+}
+$('right').onclick = function () {
+    sendCommand('right');
+}
+$('down').onclick = function () {
+    sendCommand('down');
+}
+$('left').onclick = function () {
+    sendCommand('left');
+}
+
+function sendCommand(status) {
+    ws.send(status);
+}
+
+// ...
+```
+
+### 3. WebSocket Service 发送「指令」给 PPT 网页端
+
+发送「指令」前 判断 PPT 网页端是否在线，以及只允许一个控制端页面进行「指令」的下发
+
+file: [/web/controller/control.js](https://github.com/wenlong-date/ppt/blob/master/web/controller/control.js)
+
+```php
+// ...
+
+class PptSocketServer
+{
+    // ...
+
+    public function handleMessage($connection, $data)
+    {
+        // ...
+
+        if (is_null($this->globalPptConnection)) {
+            Log::info('ppt offline; cant control');
+            return;
+        }
+
+        // 目前只允许一个控制器发送指令。
+        if (!is_null($this->globalControllerConnection)
+            && $connection->uid !== $this->globalControllerConnection->uid
+        ) {
+            Log::info('sorry, you are not correct controller ' . $connection->uid);
+            return;
+        }
+        // 转发控制端「指令」到 PPT 网页端
+        $this->globalPptConnection->send($data);
+    }
+    // ...
+
+}
+```
+
+### 4. PPT 网页端执行翻页「指令」
+
+file: [server.php](https://github.com/wenlong-date/ppt/blob/master/server.php)
+
+```javascript
+// ...
+
+var ws = new WebSocket('ws://' + location.hostname + ":2346");
+ws.onopen = function () {
+    ws.send('i am ppt');
+};
+ws.onmessage = function (e) {
+    console.log('ppt get message from server: ' + e.data);
+    switch (e.data) {
+        case 'up':
+            Reveal.up();
+            break;
+        case 'right':
+            Reveal.right();
+            break;
+        case 'down':
+            Reveal.down();
+            break;
+        case 'left':
+            Reveal.left();
+            break;
+        default:
+            console.log('unSupport command : ' . e.data)
+    }
+};
+
+// ...
+```
+
 ## 本地运行
+
+> **注意：** 如果要演示自己的 revealjs PPT 则需要先在 PPT 的首页 html 文件尾部中引入 control.js
+> ```
+>  <script src="/controller/control.js"></script>
+> ```
 
 1. git clone https://github.com/wenlong-date/ppt.git  && composer install
 2. 将 web/ppt 目录下的文件 替换为你自己的 reveal.js PPT 相关的前端文件 (默认有demo演示用的 PPT)
