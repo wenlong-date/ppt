@@ -20,7 +20,7 @@
 >
 > 我可不可以**使用手机控制** 通过 revealjs 编写的浏览器端的 **PPT 页面**呢？
 >
-> 查阅一些资料后，了解了 WebSocket 全双工通信协议，现代浏览器支持； 
+> 查阅一些资料后，了解了 WebSocket 全双工通信协议[<sup>[1]</sup>](#referWebSocketWiki)，现代浏览器支持； 
 >
 > 由此想到，可以写一个有上下左右控制的页面，连接一个 WebSocket 服务，然后点击上下左右后下发「指令」到 WebSocket 服务，然后 PPT 页面也连接此 WebSocket 服务 ，最后 WebSocket 服务 转发 「指令」 给 PPT 页面，从而做出翻页操作。
 >
@@ -339,3 +339,13 @@ ws.onmessage = function (e) {
 
 
 ![image-20210914004139412](images/image-20210914004139412.png)
+
+
+## 参考资料
+<div id="referWebSocketWiki"></div>
+
+- [1] [WebSocket Wikipedia](https://zh.wikipedia.org/wiki/WebSocket)
+- [reveal.js 官网](https://revealjs.com/)
+- [workderman 版本手册 - 基本流程](http://doc.workerman.net/development/process.html)
+- [MDN Web Docs - Web API 接口参考 - WebSocket](https://developer.mozilla.org/zh-CN/docs/Web/API/WebSocket])
+- [原生JS实现触摸滑动监听事件 - 掘金](https://juejin.cn/post/6973541673196322847)
