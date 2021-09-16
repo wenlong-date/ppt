@@ -1,4 +1,4 @@
-# 基于 WebSocket 的 PPT 远程控制器简单实现
+# 简单实现基于 WebSocket 的 revealjs PPT 远程控制器
 
 ## 背景
 
@@ -18,7 +18,7 @@
 >
 > 别人 PPT 演说都还需要配置无线翻页笔，有什么方法可以实现类似的操作呢？
 >
-> 我可不可以**使用手机控制** 通过 revealjs 编写的浏览器端的 **PPT 页面**呢？
+> 我可不可以**使用手机远程控制** 通过 revealjs 编写的浏览器端的 **PPT 页面**呢？
 >
 > 查阅一些资料后，了解了 WebSocket 全双工通信协议[<sup>[1]</sup>](#referWebSocketWiki)，现代浏览器支持； 
 >
